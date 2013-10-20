@@ -10,7 +10,8 @@ import javax.swing.JFileChooser;
  * 
  */
 public class Main {
-
+	
+	//ยาย๋ีฆี๛
 	public static void main(String[] args) {
 		JFileChooser chooser = new JFileChooser();
 		chooser.setCurrentDirectory(new File("/"));
