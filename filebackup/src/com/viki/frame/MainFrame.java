@@ -24,7 +24,7 @@ import javax.swing.SwingUtilities;
  * PURCHASED FOR THIS MACHINE, SO JIGLOO OR THIS CODE CANNOT BE USED LEGALLY FOR
  * ANY CORPORATE OR COMMERCIAL PURPOSE.
  */
-public class Mainframe extends javax.swing.JFrame {
+public class MainFrame extends javax.swing.JFrame {
 
 	{
 		// Set Look & Feel
@@ -53,14 +53,14 @@ public class Mainframe extends javax.swing.JFrame {
 	public static void main(String[] args) {
 		SwingUtilities.invokeLater(new Runnable() {
 			public void run() {
-				Mainframe inst = new Mainframe();
+				MainFrame inst = new MainFrame();
 				inst.setLocationRelativeTo(null);
 				inst.setVisible(true);
 			}
 		});
 	}
 
-	public Mainframe() {
+	public MainFrame() {
 		super();
 		setTitle("欢迎使用,文件拷贝系统");
 		initGUI();
