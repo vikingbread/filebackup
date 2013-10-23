@@ -134,6 +134,14 @@ public class MainFrame extends javax.swing.JFrame {
 					panel.add(confirmButton);
 					confirmButton.setText("\u786e\u5b9a");
 					confirmButton.setBounds(123, 196, 57, 23);
+					confirmButton.addActionListener(new ActionListener() {
+						
+						@Override
+						public void actionPerformed(ActionEvent e) {
+							File from = new File(fileFrom.getText());
+							File to = new File(fileTo.getText());
+						}
+					});
 				}
 				{
 					cancelButton = new JButton();
