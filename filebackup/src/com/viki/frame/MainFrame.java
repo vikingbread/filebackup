@@ -4,15 +4,22 @@ import java.awt.BorderLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
+import java.util.LinkedList;
 
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JProgressBar;
 import javax.swing.JTextField;
 
 import javax.swing.WindowConstants;
 import javax.swing.SwingUtilities;
+
+import com.viki.entity.FileInfo;
+import com.viki.exception.CopyFileErrorException;
+import com.viki.exception.FileNotExistException;
+import com.viki.util.FileUtil;
 
 /**
  * This code was edited or generated using CloudGarden's Jigloo SWT/Swing GUI
@@ -37,6 +44,7 @@ public class MainFrame extends javax.swing.JFrame {
 	}
 
 	private JPanel panel;
+	private JProgressBar progressBar = new JProgressBar(0, 10);
 	private JButton cancelButton;
 	private JButton confirmButton;
 	private JLabel targetLabel;
@@ -46,6 +54,7 @@ public class MainFrame extends javax.swing.JFrame {
 	private JButton chooseFileFrom;
 	private JTextField fileFrom;
 	private JFileChooser fileChooser;
+	private ConfirmHandler confirmHandler;
 
 	/**
 	 * Auto-generated main method to display this JFrame
@@ -64,13 +73,14 @@ public class MainFrame extends javax.swing.JFrame {
 		super();
 		setTitle("欢迎使用,文件拷贝系统");
 		initGUI();
+		initEventLisener();
 	}
 
 	private void initGUI() {
 		try {
 			setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
 			fileChooser = new JFileChooser();
-			fileChooser.setCurrentDirectory(new File("/"));
+			fileChooser.setCurrentDirectory(new File("."));
 			fileChooser
 					.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
 			fileChooser.setAcceptAllFileFilterUsed(false);
@@ -134,20 +144,13 @@ public class MainFrame extends javax.swing.JFrame {
 					panel.add(confirmButton);
 					confirmButton.setText("\u786e\u5b9a");
 					confirmButton.setBounds(123, 196, 57, 23);
-					confirmButton.addActionListener(new ActionListener() {
-						
-						@Override
-						public void actionPerformed(ActionEvent e) {
-							File from = new File(fileFrom.getText());
-							File to = new File(fileTo.getText());
-						}
-					});
 				}
 				{
 					cancelButton = new JButton();
 					panel.add(cancelButton);
 					cancelButton.setText("\u53d6\u6d88");
 					cancelButton.setBounds(218, 196, 57, 23);
+
 				}
 			}
 			pack();
@@ -156,10 +159,156 @@ public class MainFrame extends javax.swing.JFrame {
 			e.printStackTrace();
 		}
 	}
-	private void selectFile(JTextField fiedl){
+
+	private void initEventLisener() {
+		confirmButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				File source = new File(fileFrom.getText());
+				File target = new File(fileTo.getText());
+				if (source.isDirectory() && target.isDirectory()) {
+					confirmHandler = new ConfirmHandler(source, target);
+					confirmButton.setEnabled(false);
+					cancelButton.setEnabled(true);
+
+				}
+			}
+		});
+
+		cancelButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if (confirmHandler != null && !confirmHandler.isInterrupted()) {
+					confirmHandler.setInterrupted(true);
+					confirmHandler = null;
+				}
+				confirmButton.setEnabled(true);
+				cancelButton.setEnabled(false);
+			}
+		});
+
+	}
+
+	private void selectFile(JTextField fiedl) {
 		if (fileChooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
-			fiedl.setText(fileChooser.getSelectedFile()
-					.getAbsolutePath());
-		}		 
+			fiedl.setText(fileChooser.getSelectedFile().getAbsolutePath());
+		}
+	}
+
+	class ConfirmHandler implements Runnable {
+
+		private File sourceFile;
+		private File toFile;
+		private FileInfo fileInfo;
+		private boolean isInterrupted = false;
+		private int sleepTime = 0;
+
+		public ConfirmHandler(File from, File to) {
+			this.sourceFile = from;
+			this.toFile = to;
+			{
+				progressBar.setVisible(true);
+				panel.add(progressBar);
+				progressBar.setBounds(113, 167, 146, 19);
+				progressBar.setStringPainted(true);
+			}
+			new Thread(this).start();
+		}
+
+		@Override
+		public void run() {
+
+			initOperation();
+			try {
+				Thread.sleep(sleepTime);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+
+			if (sourceFile.isFile()) {
+				return;
+			}
+
+			action();//开始拷贝操作
+			
+			updateState();
+		}
+
+		private void action() {
+			LinkedList<File> stack = new LinkedList<File>();
+			stack.push(sourceFile);
+			File[] files;
+			int total = 0;
+			int sourcePathNameLength = sourceFile.getAbsolutePath().length();
+			String fileTail;
+			File dest;
+			while (!stack.isEmpty() && !isInterrupted) {
+				files = stack.pop().listFiles();
+				for (File src : files) {
+					if (src.isDirectory()) {
+						stack.push(src);
+					} else {
+						//除去sourceFile路径后的地址
+						fileTail = src.getAbsolutePath().substring(
+								sourcePathNameLength + 1);
+						dest = new File(toFile, fileTail);
+						startCopy(src, dest);
+						progressBar.setValue(++total);
+					}
+				}
+			}
+		}
+
+		private void startCopy(File src,File dest) {
+			
+			try {
+				if (!dest.exists()) {
+					FileUtil.copyFile(src, dest);
+				} else {
+					if (src.lastModified() > dest
+							.lastModified()) {
+						FileUtil.copyFile(src, dest);
+					}
+				}
+			} catch (Exception e) {
+				if (e instanceof FileNotExistException) {
+					
+				}else if(e instanceof CopyFileErrorException) {
+					if (toFile.getFreeSpace() < fileInfo.getTotalFileSize()) {
+						
+					}
+				}
+			}
+			
+		}
+
+		private void initOperation() {
+			progressBar.setString("正在分析...");
+			fileInfo = FileUtil.totalFileInfo(sourceFile);
+			progressBar.setMaximum(fileInfo.getTotalFiles());
+			progressBar.setString("正在执行...");
+		}
+
+		private void updateState() {
+			
+			if (isInterrupted) {
+				progressBar.setValue(0);
+				progressBar.setStringPainted(true);
+				progressBar.setVisible(false);
+			} else {
+				progressBar.setString("任务完成");
+				confirmButton.setEnabled(true);
+				cancelButton.setEnabled(false);
+			}
+		}
+
+		public boolean isInterrupted() {
+			return isInterrupted;
+		}
+
+		public void setInterrupted(boolean isInterrupted) {
+			this.isInterrupted = isInterrupted;
+		}
+
 	}
 }
